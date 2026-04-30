@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smart Waste Management Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <!-- Leaflet.js -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    /* ── Reset & Base ─────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #0d1117;
+      --surface:     #161b22;
+      --surface2:    #1f2937;
+      --border:      #30363d;
+      --text:        #e6edf3;
+      --muted:       #8b949e;
+      --green:       #2ea043;
+      --green-glow:  #39d35340;
+      --red:         #da3633;
+      --red-glow:    #da363340;
+      --amber:       #d29922;
+      --amber-glow:  #d2992240;
+      --accent:      #58a6ff;
+      --accent-glow: #58a6ff30;
+      --radius:      14px;
+      --transition:  0.25s ease;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 0 0 60px;
+    }
+
+    /* ── Header ───────────────────────────────────────────────────────────── */
+    header {
+      background: linear-gradient(135deg, #0a3d2f 0%, #0d1117 60%);
+      border-bottom: 1px solid var(--border);
+      padding: 24px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(10px);
+    }
+
+    .header-left { display: flex; align-items: center; gap: 14px; }
+
+    .header-icon {
+      width: 48px; height: 48px;
+      background: linear-gradient(135deg, #2ea043, #39d353);
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px;
+      box-shadow: 0 0 20px var(--green-glow);
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      line-height: 1.2;
+    }
+    h1 span { color: #39d353; }
+
+    .subtitle { color: var(--muted); font-size: 0.82rem; margin-top: 2px; }
+
+    /* live badge */
+    .live-badge {
+      display: flex; align-items: center; gap: 7px;
+      background: #0d2a0d;
+      border: 1px solid #2ea04350;
+      border-radius: 999px;
+      padding: 6px 14px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #39d353;
+    }
+    .live-dot {
+      width: 8px; height: 8px;
+      background: #39d353;
+      border-radius: 50%;
+      animation: pulse 1.6s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 #39d35360; }
+      50%       { box-shadow: 0 0 0 6px #39d35300; }
+    }
+
+    /* ── Main Container ───────────────────────────────────────────────────── */
+    main { max-width: 1300px; margin: 0 auto; padding: 32px 24px; }
+
+    /* ── Controls Bar ─────────────────────────────────────────────────────── */
+    .controls {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+
+    .last-updated { color: var(--muted); font-size: 0.82rem; }
+    .last-updated strong { color: var(--accent); }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 10px 20px;
+      border: none; border-radius: 8px;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.88rem; font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    .btn-simulate {
+      background: linear-gradient(135deg, #1f6feb, #58a6ff);
+      color: #fff;
+      box-shadow: 0 0 16px var(--accent-glow);
+    }
+    .btn-simulate:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 28px var(--accent-glow);
+    }
+    .btn-simulate:active { transform: translateY(0); }
+    .btn-simulate.loading { opacity: .7; pointer-events: none; }
+
+    /* ── Stats Strip ──────────────────────────────────────────────────────── */
+    .stats-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      transition: var(--transition);
+    }
+    .stat-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+
+    .stat-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+    .stat-value { font-size: 2rem; font-weight: 800; line-height: 1; }
+    .stat-value.green { color: #39d353; }
+    .stat-value.red   { color: #f85149; }
+    .stat-value.blue  { color: var(--accent); }
+    .stat-value.amber { color: #e3b341; }
+    .stat-sub { font-size: 0.75rem; color: var(--muted); }
+
+    /* ── Alert Banner ─────────────────────────────────────────────────────── */
+    #alertBanner {
+      background: linear-gradient(90deg, #3d1a1a, #2a0a0a);
+      border: 1px solid #da363360;
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      display: none;
+      animation: slideIn .3s ease;
+    }
+    @keyframes slideIn { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
+
+    .alert-title { font-size: 0.85rem; font-weight: 700; color: #f85149; margin-bottom: 8px; }
+    .alert-list { display: flex; flex-wrap: wrap; gap: 8px; }
+    .alert-chip {
+      background: #da363320;
+      border: 1px solid #da363350;
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 0.78rem;
+      color: #ffa198;
+    }
+
+    /* ── Section Title ────────────────────────────────────────────────────── */
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .section-header h2 { font-size: 1.1rem; font-weight: 600; }
+    .section-header .count-badge {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 2px 12px;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    /* ── Bins Grid ────────────────────────────────────────────────────────── */
+    #binsGrid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 18px;
+    }
+
+    .bin-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      transition: var(--transition);
+      position: relative;
+      overflow: hidden;
+      cursor: default;
+      animation: cardIn .4s ease both;
+    }
+    @keyframes cardIn { from { opacity:0; transform:scale(.96); } to { opacity:1; transform:scale(1); } }
+
+    .bin-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+    }
+    .bin-card.normal::before { background: linear-gradient(90deg, #2ea043, #39d353); }
+    .bin-card.medium::before { background: linear-gradient(90deg, #d29922, #e3b341); }
+    .bin-card.full::before   { background: linear-gradient(90deg, #da3633, #f85149); }
+
+    .bin-card.full {
+      border-color: #da363350;
+      box-shadow: 0 0 20px #da363315;
+    }
+    .bin-card.normal:hover { border-color: #2ea04360; transform: translateY(-3px); box-shadow: 0 4px 20px #2ea04315; }
+    .bin-card.medium:hover { border-color: #d2992260; transform: translateY(-3px); box-shadow: 0 4px 20px #d2992215; }
+    .bin-card.full:hover   { border-color: #da363370; transform: translateY(-3px); }
+
+    .bin-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .bin-id { font-size: 1rem; font-weight: 700; letter-spacing: .5px; }
+    .bin-location { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+
+    .status-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      border-radius: 999px;
+      padding: 4px 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .status-badge.normal {
+      background: #0d2a0d;
+      border: 1px solid #2ea04350;
+      color: #39d353;
+    }
+    .status-badge.medium {
+      background: #2a1f0a;
+      border: 1px solid #d2992250;
+      color: #e3b341;
+    }
+    .status-badge.full {
+      background: #2a0a0a;
+      border: 1px solid #da363350;
+      color: #f85149;
+    }
+
+    /* Progress bar */
+    .level-section { display: flex; flex-direction: column; gap: 8px; }
+    .level-row { display: flex; justify-content: space-between; align-items: center; }
+    .level-label { font-size: 0.75rem; color: var(--muted); }
+    .level-pct { font-size: 1.6rem; font-weight: 800; line-height: 1; }
+    .level-pct.normal { color: #39d353; }
+    .level-pct.medium { color: #e3b341; }
+    .level-pct.full   { color: #f85149; }
+
+    .progress-track {
+      height: 8px;
+      background: var(--surface2);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.6s cubic-bezier(.4,0,.2,1);
+    }
+    .progress-fill.normal { background: linear-gradient(90deg, #2ea043, #39d353); }
+    .progress-fill.medium { background: linear-gradient(90deg, #d29922, #e3b341); box-shadow: 0 0 8px #d2992240; }
+    .progress-fill.full   { background: linear-gradient(90deg, #da3633, #f85149); box-shadow: 0 0 8px #f8514940; }
+
+    .bin-footer { font-size: 0.72rem; color: var(--muted); border-top: 1px solid var(--border); padding-top: 12px; }
+
+    /* ── Empty / Loading States ───────────────────────────────────────────── */
+    .empty-state {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+    }
+    .empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
+    .empty-state p  { font-size: 0.9rem; }
+    .empty-state small { font-size: 0.78rem; }
+
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Map Section ──────────────────────────────────────────────────────── */
+    .map-section {
+      margin-bottom: 28px;
+    }
+    .map-section .section-header { margin-bottom: 14px; }
+
+    #map {
+      width: 100%;
+      height: 380px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      box-shadow: 0 4px 24px #00000040;
+      /* force Leaflet tile layer dark blend */
+      filter: brightness(0.92) contrast(1.05);
+    }
+
+    /* Make Leaflet popups match dark theme */
+    .leaflet-popup-content-wrapper {
+      background: #1f2937 !important;
+      border: 1px solid #30363d !important;
+      border-radius: 10px !important;
+      color: #e6edf3 !important;
+      box-shadow: 0 8px 24px #00000060 !important;
+    }
+    .leaflet-popup-tip { background: #1f2937 !important; }
+    .leaflet-popup-content { font-family: 'Inter', sans-serif; font-size: 0.82rem; line-height: 1.6; }
+    .popup-id   { font-size: 1rem; font-weight: 700; margin-bottom: 4px; }
+    .popup-full { color: #f85149; }
+    .popup-norm { color: #39d353; }
+
+    /* Leaflet attribution override for dark */
+    .leaflet-control-attribution { background: #161b22cc !important; color: #8b949e !important; }
+    .leaflet-control-attribution a { color: #58a6ff !important; }
+
+    /* Blinking ring for FULL bins */
+    @keyframes markerPulse {
+      0%   { box-shadow: 0 0 0 0   #f8514980; }
+      70%  { box-shadow: 0 0 0 12px #f8514900; }
+      100% { box-shadow: 0 0 0 0   #f8514900; }
+    }
+    .pulse-full {
+      border-radius: 50%;
+      animation: markerPulse 1.4s ease-in-out infinite;
+    }
+
+    /* Map legend */
+    .map-legend {
+      background: #161b22ee;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.75rem;
+      color: #e6edf3;
+      line-height: 1.8;
+      pointer-events: none;
+    }
+    .legend-title { font-weight: 700; margin-bottom: 4px; font-size: 0.78rem; }
+    .legend-row { display: flex; align-items: center; gap: 7px; }
+    .legend-dot {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      border: 2px solid rgba(255,255,255,.3);
+    }
+
+    /* ── Route Optimization ───────────────────────────────────────────────── */
+    .btn-route {
+      background: linear-gradient(135deg, #6e3fcf, #a855f7);
+      color: #fff;
+      box-shadow: 0 0 16px #a855f730;
+    }
+    .btn-route:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 28px #a855f750;
+    }
+    .btn-route:active { transform: translateY(0); }
+    .btn-route.active {
+      background: linear-gradient(135deg, #166534, #22c55e);
+      box-shadow: 0 0 20px #22c55e40;
+    }
+
+    /* Route stats panel */
+    #routePanel {
+      background: var(--surface);
+      border: 1px solid #a855f740;
+      border-radius: var(--radius);
+      padding: 18px 22px;
+      margin-top: 14px;
+      display: none;
+      animation: slideIn .3s ease;
+    }
+    #routePanel.visible { display: block; }
+    .route-panel-title {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #c084fc;
+      margin-bottom: 14px;
+      letter-spacing: .3px;
+    }
+    .route-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .route-stat { display: flex; flex-direction: column; gap: 3px; }
+    .route-stat-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+    .route-stat-value { font-size: 1.3rem; font-weight: 800; }
+    .route-stat-value.purple { color: #c084fc; }
+    .route-stat-value.red-c  { color: #f85149; }
+    .route-stat-value.amber-c{ color: #e3b341; }
+    .route-stat-value.green-c{ color: #39d353; }
+
+    /* Sequence badge shown on map markers */
+    .seq-badge {
+      position: absolute;
+      top: -8px; right: -8px;
+      background: #fff;
+      color: #000;
+      border-radius: 999px;
+      font-size: 9px;
+      font-weight: 800;
+      width: 16px; height: 16px;
+      display: flex; align-items: center; justify-content: center;
+      border: 2px solid #000;
+      line-height: 1;
+    }
+
+    /* Animated dashed polyline wrapper */
+    @keyframes dashFlow {
+      to { stroke-dashoffset: -20; }
+    }
+
+    /* Next-bin highlight ring */
+    @keyframes nextPulse {
+      0%   { box-shadow: 0 0 0 0  #ffffff80; }
+      70%  { box-shadow: 0 0 0 14px #ffffff00; }
+      100% { box-shadow: 0 0 0 0  #ffffff00; }
+    }
+    .next-bin-ring {
+      border-radius: 50%;
+      animation: nextPulse .9s ease-in-out infinite;
+    }
+
+    /* ── Responsive tweaks ────────────────────────────────────────────────── */
+    @media (max-width: 640px) {
+      header { padding: 16px 20px; }
+      main   { padding: 20px 16px; }
+      h1     { font-size: 1.1rem; }
+      #map   { height: 260px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ────────────────────────────────────────────────────────────────── -->
+<header>
+  <div class="header-left">
+    <div class="header-icon">🗑️</div>
+    <div>
+      <h1>Smart Waste <span>Management</span> Dashboard</h1>
+      <div class="subtitle">IoT-enabled real-time bin monitoring system</div>
+    </div>
+  </div>
+  <div class="live-badge">
+    <div class="live-dot"></div>
+    LIVE MONITORING
+  </div>
+</header>
+
+<!-- ── Main ──────────────────────────────────────────────────────────────────── -->
+<main>
+
+  <!-- ── Map Section ──────────────────────────────────────────────────── -->
+  <div class="map-section">
+    <div class="section-header">
+      <h2>📍 Smart Bin Locations</h2>
+      <span class="count-badge" id="mapCount">0 bins on map</span>
+    </div>
+    <div id="map"></div>
+
+    <!-- Route Stats Panel -->
+    <div id="routePanel">
+      <div class="route-panel-title">🛣️ Optimized Collection Route — Priority Order: 🔴 → 🟡 → 🟢</div>
+      <div class="route-stats">
+        <div class="route-stat">
+          <div class="route-stat-label">Total Distance</div>
+          <div class="route-stat-value purple" id="routeDist">—</div>
+        </div>
+        <div class="route-stat">
+          <div class="route-stat-label">Est. Time</div>
+          <div class="route-stat-value purple" id="routeTime">—</div>
+        </div>
+        <div class="route-stat">
+          <div class="route-stat-label">🔴 High Priority</div>
+          <div class="route-stat-value red-c" id="routeRed">—</div>
+        </div>
+        <div class="route-stat">
+          <div class="route-stat-label">🟡 Medium</div>
+          <div class="route-stat-value amber-c" id="routeAmber">—</div>
+        </div>
+        <div class="route-stat">
+          <div class="route-stat-label">🟢 Low</div>
+          <div class="route-stat-value green-c" id="routeGreen">—</div>
+        </div>
+        <div class="route-stat">
+          <div class="route-stat-label">Next Stop</div>
+          <div class="route-stat-value purple" id="routeNext">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <div class="last-updated">Last updated: <strong id="lastUpdated">—</strong></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn btn-route" id="routeBtn" onclick="triggerOptimize()">
+        🛣️ Optimize Route
+      </button>
+      <button class="btn btn-simulate" id="simulateBtn" onclick="triggerSimulate()">
+        ⚡ Simulate Bins
+      </button>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-strip">
+    <div class="stat-card">
+      <div class="stat-label">Total Bins</div>
+      <div class="stat-value blue" id="statTotal">—</div>
+      <div class="stat-sub">Active IoT devices</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Normal Bins</div>
+      <div class="stat-value green" id="statNormal">—</div>
+      <div class="stat-sub">Level &lt; 80%</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Full Bins</div>
+      <div class="stat-value red" id="statFull">—</div>
+      <div class="stat-sub">Require collection</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Avg. Fill Level</div>
+      <div class="stat-value amber" id="statAvg">—</div>
+      <div class="stat-sub">Across all bins</div>
+    </div>
+  </div>
+
+  <!-- Alert Banner -->
+  <div id="alertBanner">
+    <div class="alert-title">🚨 ATTENTION — Bins require immediate collection</div>
+    <div class="alert-list" id="alertList"></div>
+  </div>
+
+  <!-- Bins Grid -->
+  <div class="section-header">
+    <h2>📡 Live Bin Status</h2>
+    <span class="count-badge" id="gridCount">0 bins</span>
+  </div>
+
+  <div id="binsGrid">
+    <div class="empty-state">
+      <div class="spinner"></div>
+      <p>Connecting to IoT network…</p>
+      <small>Click "Simulate Bins" to generate demo data</small>
+    </div>
+  </div>
+
+</main>
+
+<!-- ── Script ─────────────────────────────────────────────────────────────────── -->
+<script>
+  const API = "http://127.0.0.1:5000";
+  let refreshTimer = null;
+
+  // ── Leaflet Map Setup ───────────────────────────────────────────────────────
+  const map = L.map('map', { zoomControl: true, scrollWheelZoom: true });
+
+  // Dark-style tile layer (CartoDB Dark Matter, no API key)
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+    subdomains: 'abcd',
+    maxZoom: 19,
+  }).addTo(map);
+
+  // Default view — Chennai / IIT Madras area
+  map.setView([12.9916, 80.2336], 14);
+
+  // Layer group — cleared on each refresh
+  const markerLayer = L.layerGroup().addTo(map);
+
+  // ── Add legend control ──────────────────────────────────────────────────────
+  const legend = L.control({ position: 'bottomright' });
+  legend.onAdd = () => {
+    const div = L.DomUtil.create('div', 'map-legend');
+    div.innerHTML = `
+      <div class="legend-title">🗺 Legend</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#f85149"></div> 🔴 High (≥80%)</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#e3b341"></div> 🟡 Medium (50–79%)</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#39d353"></div> 🟢 Low (&lt;50%)</div>
+      <div style="margin-top:6px;border-top:1px solid #30363d;padding-top:6px">
+        <div class="legend-row"><div style="width:24px;height:3px;background:#f85149;border-radius:2px"></div> Red route</div>
+        <div class="legend-row"><div style="width:24px;height:3px;background:#e3b341;border-radius:2px"></div> Amber route</div>
+        <div class="legend-row"><div style="width:24px;height:3px;background:#39d353;border-radius:2px"></div> Green route</div>
+      </div>`;
+    return div;
+  };
+  legend.addTo(map);
+
+  // ── Route layer group (polylines only) ─────────────────────────────────────
+  const routeLayer = L.layerGroup().addTo(map);
+  let routeActive  = false;   // toggled by Optimize button
+  let lastBinsSnap = [];      // snapshot used to re-draw on refresh
+
+  // ── Priority helper ─────────────────────────────────────────────────────────
+  // Returns { label, color, borderColor, cls }
+  function getPriority(level) {
+    if (level >= 80) return { label: '🔴 High',   color: '#f85149', border: '#ff6b6b', cls: 'pulse-full', routeColor: '#f85149' };
+    if (level >= 50) return { label: '🟡 Medium', color: '#e3b341', border: '#fbbf24', cls: '',           routeColor: '#e3b341' };
+    return              { label: '🟢 Low',    color: '#39d353', border: '#55f07a', cls: '',           routeColor: '#39d353' };
+  }
+
+  // ── Build a custom circle marker ────────────────────────────────────────────
+  // seq: optional stop number (1-based), isNext: highlight as next stop
+  function makeMarker(bin, seq = null, isNext = false) {
+    const p      = getPriority(bin.level);
+    const radius = bin.level >= 80 ? 14 : 11;
+    const seqBadge = seq != null
+      ? `<div class="seq-badge">${seq}</div>` : '';
+    const ringCls = isNext ? 'next-bin-ring' : p.cls;
+
+    const icon = L.divIcon({
+      className: '',
+      html: `<div style="position:relative;width:${radius*2}px;height:${radius*2}px">
+        <div class="${ringCls}" style="
+          width:${radius*2}px; height:${radius*2}px;
+          background:${p.color};
+          border: 3px solid ${isNext ? '#ffffff' : p.border};
+          border-radius:50%;
+          display:flex; align-items:center; justify-content:center;
+          font-size:10px; font-weight:700; color:#000; font-family:'Inter',sans-serif;
+          box-sizing:border-box;
+        ">${bin.level}</div>
+        ${seqBadge}
+      </div>`,
+      iconSize:   [radius*2, radius*2],
+      iconAnchor: [radius,   radius],
+      popupAnchor:[0,       -(radius+4)],
+    });
+
+    const marker = L.marker([bin.lat, bin.lng], { icon });
+    const seqLine = seq != null ? `<div style="color:#c084fc;font-size:.72rem;font-weight:600;margin-bottom:2px">Stop #${seq}</div>` : '';
+    marker.bindPopup(`
+      ${seqLine}
+      <div class="popup-id">${bin.binId}</div>
+      <div style="font-weight:600;margin-bottom:4px;color:${p.color}">${p.label}</div>
+      <div>📍 ${bin.location}</div>
+      <div>📊 Fill level: <strong>${bin.level}%</strong></div>
+      <div style="margin-top:4px;color:#8b949e;font-size:.72rem">🕐 ${bin.timestamp ? new Date(bin.timestamp).toLocaleTimeString() : '—'}</div>
+    `, { maxWidth: 220 });
+    return marker;
+  }
+
+  // ── Haversine distance (metres) ─────────────────────────────────────────────
+  function haversine(a, b) {
+    const R  = 6371000;
+    const φ1 = a.lat * Math.PI / 180, φ2 = b.lat * Math.PI / 180;
+    const Δφ = (b.lat - a.lat) * Math.PI / 180;
+    const Δλ = (b.lng - a.lng) * Math.PI / 180;
+    const x  = Math.sin(Δφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1-x));
+  }
+
+  // ── Nearest-neighbour TSP on a list of bins ──────────────────────────────────
+  function nearestNeighbour(bins) {
+    if (!bins.length) return [];
+    const remaining = [...bins];
+    const route = [remaining.splice(0, 1)[0]];
+    while (remaining.length) {
+      const last = route[route.length - 1];
+      let bestIdx = 0, bestDist = Infinity;
+      remaining.forEach((b, i) => {
+        const d = haversine(last, b);
+        if (d < bestDist) { bestDist = d; bestIdx = i; }
+      });
+      route.push(remaining.splice(bestIdx, 1)[0]);
+    }
+    return route;
+  }
+
+  // ── Build priority-ordered route ─────────────────────────────────────────────
+  function buildRoute(bins) {
+    const red    = bins.filter(b => b.level >= 80);
+    const amber  = bins.filter(b => b.level >= 50 && b.level < 80);
+    const green  = bins.filter(b => b.level < 50);
+    return [
+      ...nearestNeighbour(red),
+      ...nearestNeighbour(amber),
+      ...nearestNeighbour(green),
+    ];
+  }
+
+  // ── Animate a polyline segment-by-segment ────────────────────────────────────
+  function animatePolyline(coords, color, delay = 0) {
+    if (coords.length < 2) return;
+    let i = 0;
+    function drawNext() {
+      if (i >= coords.length - 1) return;
+      const seg = L.polyline([coords[i], coords[i+1]], {
+        color, weight: 4, opacity: 0.85,
+        dashArray: '10 6',
+        lineJoin: 'round',
+      }).addTo(routeLayer);
+      // CSS animation via SVG path element
+      setTimeout(() => {
+        const path = seg.getElement();
+        if (path) {
+          path.style.strokeDashoffset = '0';
+          path.style.animation = 'dashFlow 0.6s linear infinite';
+        }
+      }, 50);
+      i++;
+      setTimeout(drawNext, 80);
+    }
+    setTimeout(drawNext, delay);
+  }
+
+  // ── Draw optimised route on map ──────────────────────────────────────────────
+  function drawRoute(orderedBins) {
+    routeLayer.clearLayers();
+    if (orderedBins.length < 2) return;
+
+    // Group consecutive stops by priority colour for coloured segments
+    for (let i = 0; i < orderedBins.length - 1; i++) {
+      const a = orderedBins[i];
+      const b = orderedBins[i + 1];
+      const color = getPriority(a.level).routeColor;
+      animatePolyline([[a.lat, a.lng], [b.lat, b.lng]], color, i * 80);
+    }
+
+    // Depot marker (truck start)
+    const depot = orderedBins[0];
+    const depotIcon = L.divIcon({
+      className: '',
+      html: `<div style="
+        width:28px;height:28px;background:#a855f7;
+        border:3px solid #fff;border-radius:6px;
+        display:flex;align-items:center;justify-content:center;
+        font-size:14px;box-shadow:0 0 12px #a855f760;
+      ">🚛</div>`,
+      iconSize: [28,28], iconAnchor: [14,14], popupAnchor: [0,-16],
+    });
+    L.marker([depot.lat, depot.lng], { icon: depotIcon })
+      .bindPopup('<b>🚛 Collection Start</b><br>' + depot.binId)
+      .addTo(routeLayer);
+  }
+
+  // ── Render all bin markers (with optional route seq numbers) ────────────────
+  function renderMapMarkers(bins, routeOrder = null) {
+    markerLayer.clearLayers();
+    if (!bins.length) return;
+
+    // Build seq map keyed by binId
+    const seqMap  = {};
+    const nextBinId = routeOrder && routeOrder.length ? routeOrder[0].binId : null;
+    if (routeOrder) routeOrder.forEach((b, i) => { seqMap[b.binId] = i + 1; });
+
+    bins.forEach(bin => {
+      if (bin.lat == null || bin.lng == null) return;
+      const seq    = seqMap[bin.binId] ?? null;
+      const isNext = bin.binId === nextBinId;
+      markerLayer.addLayer(makeMarker(bin, seq, isNext));
+    });
+
+    // Fit map to marker bounds (with padding) — only first render
+    const coords = bins.filter(b => b.lat != null && b.lng != null).map(b => [b.lat, b.lng]);
+    if (coords.length) {
+      map.fitBounds(L.latLngBounds(coords), { padding: [40, 40], maxZoom: 16 });
+    }
+
+    document.getElementById('mapCount').textContent =
+      `${bins.length} bin${bins.length !== 1 ? 's' : ''} on map`;
+  }
+
+  // ── Compute + display route ──────────────────────────────────────────────────
+  function optimizeAndDraw(bins) {
+    if (!bins.length) return;
+    const validBins = bins.filter(b => b.lat != null && b.lng != null);
+    if (validBins.length < 2) return;
+
+    const ordered = buildRoute(validBins);
+    lastBinsSnap  = ordered;
+
+    // Draw lines + markers with seq
+    drawRoute(ordered);
+    renderMapMarkers(bins, ordered);
+
+    // Compute total distance
+    let dist = 0;
+    for (let i = 0; i < ordered.length - 1; i++) dist += haversine(ordered[i], ordered[i+1]);
+    const distKm  = (dist / 1000).toFixed(2);
+    const minutes = Math.round(dist / 1000 / 25 * 60);  // assume 25 km/h avg
+    const hrs  = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    const timeStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins} min`;
+
+    // Priority counts
+    const redC   = validBins.filter(b => b.level >= 80).length;
+    const amberC = validBins.filter(b => b.level >= 50 && b.level < 80).length;
+    const greenC = validBins.filter(b => b.level < 50).length;
+
+    // Update UI panel
+    document.getElementById('routeDist').textContent  = distKm + ' km';
+    document.getElementById('routeTime').textContent  = timeStr;
+    document.getElementById('routeRed').textContent   = redC + ' bins';
+    document.getElementById('routeAmber').textContent = amberC + ' bins';
+    document.getElementById('routeGreen').textContent = greenC + ' bins';
+    document.getElementById('routeNext').textContent  = ordered[0]?.binId ?? '—';
+    document.getElementById('routePanel').classList.add('visible');
+  }
+
+  // ── Exposed: Optimize button handler ────────────────────────────────────────
+  function triggerOptimize() {
+    const btn = document.getElementById('routeBtn');
+    if (routeActive) {
+      // Toggle OFF
+      routeActive = false;
+      routeLayer.clearLayers();
+      renderMapMarkers(lastBinsSnap.length ? lastBinsSnap : []);
+      document.getElementById('routePanel').classList.remove('visible');
+      btn.innerHTML = '🛣️ Optimize Route';
+      btn.classList.remove('active');
+    } else {
+      // Toggle ON
+      routeActive = true;
+      btn.innerHTML = '✅ Route Active';
+      btn.classList.add('active');
+      if (lastBinsSnap.length) optimizeAndDraw(lastBinsSnap);
+    }
+  }
+
+  // ── Render helpers ──────────────────────────────────────────────────────────
+  function cls(level) {
+    if (level >= 80) return "full";
+    if (level >= 50) return "medium";
+    return "normal";
+  }
+  function emoji(level) {
+    if (level >= 80) return "🔴";
+    if (level >= 50) return "🟡";
+    return "🟢";
+  }
+  function statusLabel(level) {
+    if (level >= 80) return "Full";
+    if (level >= 50) return "Medium";
+    return "Normal";
+  }
+
+  function fmtTime(iso) {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  }
+
+  function renderCard(bin) {
+    const c = cls(bin.level);
+    return `
+      <div class="bin-card ${c}">
+        <div class="bin-header">
+          <div>
+            <div class="bin-id">${bin.binId}</div>
+            <div class="bin-location">📍 ${bin.location}</div>
+          </div>
+          <span class="status-badge ${c}">${emoji(bin.level)} ${statusLabel(bin.level)}</span>
+        </div>
+
+        <div class="level-section">
+          <div class="level-row">
+            <span class="level-label">Fill Level</span>
+            <span class="level-pct ${c}">${bin.level}%</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill ${c}" style="width:${bin.level}%"></div>
+          </div>
+        </div>
+
+        <div class="bin-footer">🕐 Updated: ${fmtTime(bin.timestamp)}</div>
+      </div>`;
+  }
+
+  // ── Update UI ───────────────────────────────────────────────────────────────
+  function updateDashboard(bins) {
+    lastBinsSnap = bins;  // always keep snapshot fresh
+    if (routeActive) {
+      optimizeAndDraw(bins);
+    } else {
+      renderMapMarkers(bins);
+    }
+    // Stats
+    const total  = bins.length;
+    const full   = bins.filter(b => b.level >= 80).length;
+    const normal = total - full;
+    const avg    = total ? Math.round(bins.reduce((s, b) => s + b.level, 0) / total) : 0;
+
+    document.getElementById("statTotal").textContent  = total;
+    document.getElementById("statNormal").textContent = normal;
+    document.getElementById("statFull").textContent   = full;
+    document.getElementById("statAvg").textContent    = total ? avg + "%" : "—";
+    document.getElementById("gridCount").textContent  = `${total} bin${total !== 1 ? "s" : ""}`;
+    document.getElementById("lastUpdated").textContent = new Date().toLocaleTimeString();
+
+    // Alerts
+    const alertBanner = document.getElementById("alertBanner");
+    const alertList   = document.getElementById("alertList");
+    const criticalBins = bins.filter(b => b.level >= 80);
+    if (criticalBins.length) {
+      alertBanner.style.display = "block";
+      alertList.innerHTML = criticalBins
+        .map(b => `<span class="alert-chip">🗑️ ${b.binId} — ${b.level}% (${b.location})</span>`)
+        .join("");
+    } else {
+      alertBanner.style.display = "none";
+    }
+
+    // Grid
+    const grid = document.getElementById("binsGrid");
+    if (!bins.length) {
+      grid.innerHTML = `
+        <div class="empty-state">
+          <div class="icon">📭</div>
+          <p>No bin data found.</p>
+          <small>Click <strong>Simulate Bins</strong> to add demo readings.</small>
+        </div>`;
+      return;
+    }
+
+    // Bins already sorted by level desc from API, render directly
+    grid.innerHTML = bins.map(renderCard).join("");
+  }
+
+  // ── Fetch data from API ─────────────────────────────────────────────────────
+  async function fetchData() {
+    try {
+      const res  = await fetch(`${API}/data`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      updateDashboard(json.bins || []);
+    } catch (err) {
+      console.warn("Fetch error:", err.message);
+      document.getElementById("lastUpdated").textContent = "⚠ Connection lost";
+    }
+  }
+
+  // ── Simulate ────────────────────────────────────────────────────────────────
+  async function triggerSimulate() {
+    const btn = document.getElementById("simulateBtn");
+    btn.classList.add("loading");
+    btn.textContent = "⏳ Simulating…";
+    try {
+      const res = await fetch(`${API}/simulate`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await fetchData();
+    } catch (err) {
+      alert("Could not reach the backend.\nMake sure app.py is running on port 5000.");
+    } finally {
+      btn.classList.remove("loading");
+      btn.innerHTML = "⚡ Simulate Bins";
+    }
+  }
+
+  // ── Auto-refresh every 3 s (dashboard cards) + 5 s (map via same fetch) ────
+  // Map is updated inside updateDashboard() which fetchData() calls,
+  // so a single setInterval covers both. We keep a 3 s interval for cards
+  // and markers both redraw on the same cadence (fast enough for demo).
+  function startRefresh() {
+    fetchData();
+    refreshTimer = setInterval(fetchData, 3000);
+  }
+
+  // ── Boot ────────────────────────────────────────────────────────────────────
+  startRefresh();
+</script>
+</body>
+</html>
