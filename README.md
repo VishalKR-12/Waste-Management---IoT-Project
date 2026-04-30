@@ -129,14 +129,14 @@ open CodeFiles/HackathonCodeFile/index.html
 
 ## 🖼️ Screenshots & Demo
 
-- **Hardware Working:** `![Hardware Image 1](./Photos/Hardware/Pic1.jpeg)`
-- **Hardware Working:** `![Hardware Image 2](./Photos/Hardware/Pic2.jpeg)`
-- **Wokwi Simulation:** `![Wokwi Setup Architecture](./Photos/Simulation/Simulation1.png)`
-- **Wokwi Simulation:** `![Green Stage](./Photos/Simulation/SimulationGreen.png)`
-- **Wokwi Simulation:** `![Amber Stage](./Photos/Simulation/SimulationYellow.png)`
-- **Wokwi Simulation:** `![Red Stage](./Photos/Simulation/SimulationRed.png)`
-- **Software View:** `![Dashboard UI](./Photos/Software/SoftwareBins.png)`
-- **Software View:** `![Map & Routing](./Photos/Software/SoftwarePath.png)`
+- **Hardware Working:** ![Hardware Image 1](./Photos/Hardware/Pic1.jpeg)
+- **Hardware Working:** ![Hardware Image 2](./Photos/Hardware/Pic2.jpeg)
+- **Wokwi Simulation:** ![Wokwi Setup Architecture](./Photos/Simulation/Simulation1.png)
+- **Wokwi Simulation:** ![Green Stage](./Photos/Simulation/SimulationGreen.png)
+- **Wokwi Simulation:** ![Amber Stage](./Photos/Simulation/SimulationYellow.png)
+- **Wokwi Simulation:** ![Red Stage](./Photos/Simulation/SimulationRed.png)
+- **Software View:** ![Dashboard UI](./Photos/Software/SoftwareBins.png)
+- **Software View:** ![Map & Routing](./Photos/Software/SoftwarePath.png)
 
 ---
 
